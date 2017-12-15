@@ -51,7 +51,7 @@ func TestQueryVault(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	httpmock.RegisterResponder("GET", "http://localhost:8200/v1/secret/password", httpmock.NewStringResponder(http.StatusOK,
-		`{"request_id":"","lease_id":"","renewable":false,"lease_duration":2764800,"data":{"value":"itsasecret"},"wrap_info":null,"warnings":null,"auth":null}`))
+		`{"data":{"value":"itsasecret"}}`))
 
 	results := queryVault(url, token, paths)
 
