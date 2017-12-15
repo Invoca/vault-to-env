@@ -50,12 +50,27 @@ func TestQueryVault(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	httpmock.RegisterResponder("GET", "http://localhost:8200/v1/secret/password", httpmock.NewStringResponder(http.StatusOK,
-		`{"data":{"value":"itsasecret"}}`))
+	httpmock.RegisterResponder(
+		"GET",
+		"http://localhost:8200/v1/secret/password",
+		httpmock.NewStringResponder(http.StatusOK, `{"data":{"value":"itsasecret"}}`),
+	)
 
 	results := queryVault(url, token, paths)
 
 	if !reflect.DeepEqual(results, values) {
-		t.Errorf("expected %v; got %v", results, values)
+		t.Errorf("expected %v; got %v", values, results)
+	}
+}
+
+func TestParseKeys(t *testing.T) {
+	keys := []string{"foo", "biz"}
+	expected := []string{"bar", "zib"}
+	data := []string{`{"foo":"bar"}`, `{"biz":"zib"}`}
+
+	results := parseKeys(keys, data)
+
+	if !reflect.DeepEqual(results, expected) {
+		t.Errorf("expected %v; got %v", expected, results)
 	}
 }

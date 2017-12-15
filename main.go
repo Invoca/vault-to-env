@@ -62,7 +62,7 @@ func queryVault(url, token string, paths []string) []string {
 
 		vrData, err := json.Marshal(&vr.Data)
 		if err != nil {
-			fmt.Printf("unable to marshall vrData; %v", err)
+			fmt.Printf("unable to marshal vrData; %v", err)
 		}
 		values = append(values, string(vrData))
 	}
@@ -70,15 +70,31 @@ func queryVault(url, token string, paths []string) []string {
 	return values
 }
 
+func parseKeys(keys, data []string) []string {
+	var keyValue map[string]interface{}
+	var values []string
+
+	for i, key := range keys {
+		if err := json.Unmarshal([]byte(data[i]), &keyValue); err != nil {
+			fmt.Printf("unable to unmarshal keyValue; %v", err)
+		}
+		values = append(values, keyValue[key].(string))
+	}
+
+	return values
+}
+
 func main() {
-	var paths, envVars arrayFlag
+	var paths, envVars, keys arrayFlag
 
 	url := flag.String("url", "", "The Vault URL to query.")
 	token := flag.String("token", "", "The token to query Vault with.")
 	flag.Var(&paths, "path", "Path to secret being queried. Can be provided multiple times.")
 	flag.Var(&envVars, "evar", "Env variable to store secret in. Can be provided multiple times.")
+	flag.Var(&keys, "key", "Key to parse for the secret value")
 	flag.Parse()
 
 	results := queryVault(*url, *token, paths)
-	setEnvs(envVars, results)
+	keyValues := parseKeys(keys, results)
+	setEnvs(envVars, keyValues)
 }
