@@ -47,6 +47,17 @@ func TestSetEnvs(t *testing.T) {
 	}
 }
 
+func TestSplit(t *testing.T) {
+	kv := "a=b"
+	key := "a"
+	value := "b"
+
+	k, v := split(kv)
+	if k != key || v != value {
+		t.Errorf("key should have been %v, was %v; value should have been %v, was %v", key, k, value, v)
+	}
+}
+
 func TestQueryVault(t *testing.T) {
 	url := "http://localhost:8200"
 	token := "roottoken"
