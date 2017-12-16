@@ -20,10 +20,16 @@ func (a *arrayFlag) String() string {
 	return fmt.Sprint([]string(*a))
 }
 
-func setEnvs(envVars, values []string) {
-	for i, envVar := range envVars {
-		os.Setenv(envVar, values[i])
+func setEnvs(values []string) {
+	for _, value := range values {
+		k, v := split(value)
+		os.Setenv(k, v)
 	}
+}
+
+func split(kv string) (string, string) {
+	kva := strings.Split(kv, "=")
+	return kva[0], kva[1]
 }
 
 type vaultResponse struct {
@@ -36,65 +42,56 @@ type vaultResponse struct {
 	Auth          string                 `json:"auth,omitempty"`
 }
 
-func queryVault(url, token string, paths []string) []string {
-	var client http.Client
+func (r *vaultResponse) parseKeys(eks []string) ([]string, error) {
 	var values []string
 
-	for _, path := range paths {
-		vr := vaultResponse{}
+	if len(eks) != len(r.Data) {
+		return nil, fmt.Errorf("You must provide the same amount of eks (%d) as values in your secret (%d)", len(eks), len(r.Data))
+	}
+	for _, ek := range eks {
+		e, k := split(ek)
 
-		reqURL := url + "/v1/" + path
-		req, err := http.NewRequest("GET", reqURL, nil)
-		if err != nil {
-			fmt.Printf("unable to create request; %v", err)
-		}
-		req.Header.Set("X-Vault-Token", token)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("unable to get response; %v", err)
-		}
-		defer resp.Body.Close()
-
-		if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
-			fmt.Printf("unable to decode response body; %v", err)
-		}
-
-		vrData, err := json.Marshal(&vr.Data)
-		if err != nil {
-			fmt.Printf("unable to marshal vrData; %v", err)
-		}
-		values = append(values, string(vrData))
+		values = append(values, fmt.Sprintf("%s=%s", e, r.Data[k]))
 	}
 
-	return values
+	return values, nil
 }
 
-func parseKeys(keys, data []string) []string {
-	var keyValue map[string]interface{}
-	var values []string
+func queryVault(url, token, path string) vaultResponse {
+	var client http.Client
 
-	for i, key := range keys {
-		if err := json.Unmarshal([]byte(data[i]), &keyValue); err != nil {
-			fmt.Printf("unable to unmarshal keyValue; %v", err)
-		}
-		values = append(values, keyValue[key].(string))
+	vr := vaultResponse{}
+
+	reqURL := url + "/v1/" + path
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		fmt.Printf("unable to create request; %v", err)
+	}
+	req.Header.Set("X-Vault-Token", token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("unable to get response; %v", err)
+	}
+	defer resp.Body.Close()
+
+	if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
+		fmt.Printf("unable to decode response body; %v", err)
 	}
 
-	return values
+	return vr
 }
 
 func main() {
-	var paths, envVars, keys arrayFlag
+	var eks arrayFlag
 
 	url := flag.String("url", "", "The Vault URL to query.")
 	token := flag.String("token", "", "The token to query Vault with.")
-	flag.Var(&paths, "path", "Path to secret being queried. Can be provided multiple times.")
-	flag.Var(&envVars, "evar", "Env variable to store secret in. Can be provided multiple times.")
-	flag.Var(&keys, "key", "Key to parse for the secret value")
+	path := flag.String("path", "", "Path to secret being queried.")
+	flag.Var(&eks, "eks", "ENV=key pairing where ENV gets set to the value of key in Vault")
 	flag.Parse()
 
-	results := queryVault(*url, *token, paths)
-	keyValues := parseKeys(keys, results)
-	setEnvs(envVars, keyValues)
+	response := queryVault(*url, *token, *path)
+	keyValues, _ := response.parseKeys(eks)
+	setEnvs(keyValues)
 }

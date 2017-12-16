@@ -29,14 +29,20 @@ func TestArrayFlagSet(t *testing.T) {
 }
 
 func TestSetEnvs(t *testing.T) {
-	envVars := []string{"foo", "bar"}
-	values := []string{"biz", "baz"}
-
-	setEnvs(envVars, values)
-
-	for i, envVar := range envVars {
-		if result := os.Getenv(envVar); values[i] != result {
-			t.Errorf("expected %v; got %v", values[i], result)
+	tt := []struct {
+		Eks    []string
+		Envs   []string
+		Values []string
+	}{
+		{Eks: []string{"FOO=bar"}, Envs: []string{"FOO"}, Values: []string{"bar"}},
+		{Eks: []string{"FOO=bar", "BIZ=baz"}, Envs: []string{"FOO", "BIZ"}, Values: []string{"bar", "baz"}},
+	}
+	for _, test := range tt {
+		setEnvs(test.Eks)
+		for i, env := range test.Envs {
+			if result := os.Getenv(env); result != test.Values[i] {
+				t.Errorf("expected value %v; got %v", test.Values[i], result)
+			}
 		}
 	}
 }
@@ -44,8 +50,8 @@ func TestSetEnvs(t *testing.T) {
 func TestQueryVault(t *testing.T) {
 	url := "http://localhost:8200"
 	token := "roottoken"
-	paths := []string{"secret/password"}
-	values := []string{`{"value":"itsasecret"}`}
+	path := "secret/password"
+	responseJSON := `{"data":{"value1":"itsasecret", "value2":"noitsnot"}}`
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -53,22 +59,28 @@ func TestQueryVault(t *testing.T) {
 	httpmock.RegisterResponder(
 		"GET",
 		"http://localhost:8200/v1/secret/password",
-		httpmock.NewStringResponder(http.StatusOK, `{"data":{"value":"itsasecret"}}`),
+		httpmock.NewStringResponder(http.StatusOK, responseJSON),
 	)
 
-	results := queryVault(url, token, paths)
+	results := queryVault(url, token, path)
 
-	if !reflect.DeepEqual(results, values) {
-		t.Errorf("expected %v; got %v", values, results)
+	if results.Data["value1"] != "itsasecret" {
+		t.Errorf("expected value itsasecret; got %v", results.Data["value1"])
+	}
+	if results.Data["value2"] != "noitsnot" {
+		t.Errorf("expected value noitsnot; got %v", results.Data["value2"])
 	}
 }
 
 func TestParseKeys(t *testing.T) {
-	keys := []string{"foo", "biz"}
-	expected := []string{"bar", "zib"}
-	data := []string{`{"foo":"bar"}`, `{"biz":"zib"}`}
+	eks := []string{"SECRET=value", "FOO=biz"}
+	vr := vaultResponse{Data: map[string]interface{}{
+		"value": "itsasecret",
+		"biz":   "bar",
+	}}
 
-	results := parseKeys(keys, data)
+	expected := []string{"SECRET=itsasecret", "FOO=bar"}
+	results, _ := vr.parseKeys(eks)
 
 	if !reflect.DeepEqual(results, expected) {
 		t.Errorf("expected %v; got %v", expected, results)
