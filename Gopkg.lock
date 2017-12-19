@@ -2,14 +2,14 @@
 
 
 [[projects]]
-  branch = "master"
+  branch = "v1"
   name = "github.com/jarcoal/httpmock"
   packages = ["."]
-  revision = "4442edb3db31196622da56482fd8d0fa375fba4d"
+  revision = "cf52904a3cf0f78f199ecade6a6df8e245d5b25a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cbddcaa084c6b443fe8df427723b6581636ad5402ce72ae2f3fddc16c5206a46"
+  inputs-digest = "007f2305ddd0cb4978d2a9fc6016a919a0148639379e4a62d815a659a8dde19c"
   solver-name = "gps-cdcl"
   solver-version = 1
