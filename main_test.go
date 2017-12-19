@@ -3,7 +3,6 @@ package main
 import (
 	. "flag"
 	"net/http"
-	"os"
 	"reflect"
 	"testing"
 
@@ -25,25 +24,6 @@ func TestArrayFlagSet(t *testing.T) {
 	expect := "[foo bar foobar]"
 	if a.String() != expect {
 		t.Errorf("expected value %q got %q", expect, a.String())
-	}
-}
-
-func TestSetEnvs(t *testing.T) {
-	tt := []struct {
-		Eks    []string
-		Envs   []string
-		Values []string
-	}{
-		{Eks: []string{"FOO=bar"}, Envs: []string{"FOO"}, Values: []string{"bar"}},
-		{Eks: []string{"FOO=bar", "BIZ=baz"}, Envs: []string{"FOO", "BIZ"}, Values: []string{"bar", "baz"}},
-	}
-	for _, test := range tt {
-		setEnvs(test.Eks)
-		for i, env := range test.Envs {
-			if result := os.Getenv(env); result != test.Values[i] {
-				t.Errorf("expected value %v; got %v", test.Values[i], result)
-			}
-		}
 	}
 }
 
@@ -108,15 +88,15 @@ func TestQueryVault(t *testing.T) {
 	}
 }
 
-func TestParseKeys(t *testing.T) {
+func TestBuildExports(t *testing.T) {
 	eks := []string{"SECRET=value", "FOO=biz"}
 	vr := vaultResponse{Data: map[string]interface{}{
 		"value": "itsasecret",
 		"biz":   "bar",
 	}}
 
-	expected := []string{"SECRET=itsasecret", "FOO=bar"}
-	results, _ := vr.parseKeys(eks)
+	expected := []string{"export SECRET=itsasecret", "export FOO=bar"}
+	results, _ := vr.buildExports(eks)
 
 	if !reflect.DeepEqual(results, expected) {
 		t.Errorf("expected %v; got %v", expected, results)

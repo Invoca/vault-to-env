@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -19,13 +18,6 @@ func (a *arrayFlag) Set(value string) error {
 
 func (a *arrayFlag) String() string {
 	return fmt.Sprint([]string(*a))
-}
-
-func setEnvs(values []string) {
-	for _, value := range values {
-		k, v := split(value)
-		os.Setenv(k, v)
-	}
 }
 
 func split(kv string) (string, string) {
@@ -43,7 +35,7 @@ type vaultResponse struct {
 	Auth          string                 `json:"auth,omitempty"`
 }
 
-func (r *vaultResponse) parseKeys(eks []string) ([]string, error) {
+func (r *vaultResponse) buildExports(eks []string) ([]string, error) {
 	var values []string
 
 	if len(eks) != len(r.Data) {
@@ -52,7 +44,7 @@ func (r *vaultResponse) parseKeys(eks []string) ([]string, error) {
 	for _, ek := range eks {
 		e, k := split(ek)
 
-		values = append(values, fmt.Sprintf("%s=%s", e, r.Data[k]))
+		values = append(values, fmt.Sprintf("export %s=%s", e, r.Data[k]))
 	}
 
 	return values, nil
@@ -99,6 +91,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	keyValues, _ := response.parseKeys(eks)
-	setEnvs(keyValues)
+	keyValues, _ := response.buildExports(eks)
+	fmt.Printf(strings.Join(keyValues, "\n"))
 }
