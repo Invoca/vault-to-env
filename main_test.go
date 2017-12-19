@@ -2,8 +2,10 @@ package main
 
 import (
 	. "flag"
+	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -39,51 +41,70 @@ func TestSplit(t *testing.T) {
 }
 
 func TestQueryVault(t *testing.T) {
+	url := "http://localhost:8200"
+	token := "roottoken"
+	path := "secret/password"
+	responseBody := `{"data":{"value1":"foo"}}`
+	expected := "foo"
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder(
+		"GET",
+		fmt.Sprintf("http://localhost:8200/v1/%s", path),
+		httpmock.NewStringResponder(http.StatusOK, responseBody),
+	)
+
+	results, _ := queryVault(url, token, path)
+	if results.Data["value1"] != expected {
+		t.Errorf("expected value %v; got %v", expected, results.Data["value1"])
+	}
+}
+
+func TestQueryVaultErr(t *testing.T) {
 	tt := []struct {
-		Desc         string
-		URL          string
-		Token        string
-		Path         string
-		ResponseBody string
-		ResponseCode int
-		Expected     string
-		TestError    bool
-		Error        string
+		url         string
+		token       string
+		path        string
+		mock        bool
+		mStatusCode int
+		mBody       string
+		errorMsg    string
 	}{
 		{
-			Desc:         "Normal case",
-			URL:          "http://localhost:8200",
-			Token:        "token",
-			Path:         "secret/password",
-			ResponseBody: `{"data":{"value1":"foo"}}`,
-			ResponseCode: http.StatusOK,
-			Expected:     "foo",
+			url:      "http://not a.url/",
+			errorMsg: "Unable to create request",
 		}, {
-			Desc:      "Unable to get response",
-			URL:       "http://localhost:8200",
-			TestError: true,
+			url:      "",
+			errorMsg: "Unable to get response",
 		}, {
-			Desc:      "Bad URL",
-			URL:       "notaurl",
-			TestError: true,
+			url:         "http://localhost:8200",
+			mock:        true,
+			mStatusCode: http.StatusBadRequest,
+			errorMsg:    "Did not get back",
+		}, {
+			url:         "http://localhost:8200",
+			mock:        true,
+			mStatusCode: http.StatusOK,
+			mBody:       "this is not json",
+			errorMsg:    "Unable to decode response body",
 		},
 	}
-
 	for _, test := range tt {
-		httpmock.Activate()
-		defer httpmock.DeactivateAndReset()
+		if test.mock {
+			httpmock.Activate()
+			defer httpmock.DeactivateAndReset()
 
-		httpmock.RegisterResponder(
-			"GET",
-			"http://localhost:8200/v1/secret/password",
-			httpmock.NewStringResponder(http.StatusOK, test.ResponseBody),
-		)
-
-		results, err := queryVault(test.URL, test.Token, test.Path)
-		if err != nil && test.TestError {
-			// pass
-		} else if results.Data["value1"] != test.Expected {
-			t.Errorf("expected value %v; got %v", test.Expected, results.Data["value1"])
+			httpmock.RegisterResponder(
+				"GET",
+				fmt.Sprintf("%s/v1/%s", test.url, test.path),
+				httpmock.NewStringResponder(test.mStatusCode, test.mBody),
+			)
+		}
+		_, err := queryVault(test.url, test.token, test.path)
+		if err == nil || !strings.Contains(err.Error(), test.errorMsg) {
+			t.Errorf("expected; %v, got; %v", test.errorMsg, err)
 		}
 	}
 }
