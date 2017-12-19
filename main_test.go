@@ -110,16 +110,43 @@ func TestQueryVaultErr(t *testing.T) {
 }
 
 func TestBuildExports(t *testing.T) {
-	eks := []string{"SECRET=value", "FOO=biz"}
-	vr := vaultResponse{Data: map[string]interface{}{
-		"value": "itsasecret",
-		"biz":   "bar",
-	}}
+	tt := []struct {
+		desc        string
+		vr          vaultResponse
+		eks         []string
+		expected    []string
+		expectError bool
+	}{
+		{
+			desc: "equal lengths",
+			vr: vaultResponse{Data: map[string]interface{}{
+				"value": "itsasecret",
+				"biz":   "bar",
+			}},
+			eks:      []string{"SECRET=value", "FOO=biz"},
+			expected: []string{"export SECRET=itsasecret", "export FOO=bar"},
+		}, {
+			desc: "unequal lengths",
+			vr: vaultResponse{Data: map[string]interface{}{
+				"value": "itsasecret",
+				"biz":   "bar",
+			}},
+			eks:         []string{"SECRET=value"},
+			expectError: true,
+		},
+	}
 
-	expected := []string{"export SECRET=itsasecret", "export FOO=bar"}
-	results, _ := vr.buildExports(eks)
+	for _, test := range tt {
+		t.Run(test.desc, func(t *testing.T) {
+			results, err := test.vr.buildExports(test.eks)
 
-	if !reflect.DeepEqual(results, expected) {
-		t.Errorf("expected %v; got %v", expected, results)
+			if test.expectError && err == nil {
+				t.Errorf("expected error")
+			}
+
+			if !reflect.DeepEqual(results, test.expected) {
+				t.Errorf("expected %v; got %v", test.expected, results)
+			}
+		})
 	}
 }
