@@ -64,6 +64,7 @@ func TestQueryVault(t *testing.T) {
 
 func TestQueryVaultErr(t *testing.T) {
 	tt := []struct {
+		desc        string
 		url         string
 		token       string
 		path        string
@@ -73,17 +74,21 @@ func TestQueryVaultErr(t *testing.T) {
 		errorMsg    string
 	}{
 		{
+			desc:     "bad url",
 			url:      "http://not a.url/",
 			errorMsg: "Unable to create request",
 		}, {
+			desc:     "no url",
 			url:      "",
 			errorMsg: "Unable to get response",
 		}, {
+			desc:        "not 200 response code",
 			url:         "http://localhost:8200",
 			mock:        true,
 			mStatusCode: http.StatusBadRequest,
 			errorMsg:    "Did not get back",
 		}, {
+			desc:        "not json response",
 			url:         "http://localhost:8200",
 			mock:        true,
 			mStatusCode: http.StatusOK,
@@ -92,20 +97,22 @@ func TestQueryVaultErr(t *testing.T) {
 		},
 	}
 	for _, test := range tt {
-		if test.mock {
-			httpmock.Activate()
-			defer httpmock.DeactivateAndReset()
+		t.Run(test.desc, func(t *testing.T) {
+			if test.mock {
+				httpmock.Activate()
+				defer httpmock.DeactivateAndReset()
 
-			httpmock.RegisterResponder(
-				"GET",
-				fmt.Sprintf("%s/v1/%s", test.url, test.path),
-				httpmock.NewStringResponder(test.mStatusCode, test.mBody),
-			)
-		}
-		_, err := queryVault(test.url, test.token, test.path)
-		if err == nil || !strings.Contains(err.Error(), test.errorMsg) {
-			t.Errorf("expected; %v, got; %v", test.errorMsg, err)
-		}
+				httpmock.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/v1/%s", test.url, test.path),
+					httpmock.NewStringResponder(test.mStatusCode, test.mBody),
+				)
+			}
+			_, err := queryVault(test.url, test.token, test.path)
+			if err == nil || !strings.Contains(err.Error(), test.errorMsg) {
+				t.Errorf("expected; %v, got; %v", test.errorMsg, err)
+			}
+		})
 	}
 }
 
