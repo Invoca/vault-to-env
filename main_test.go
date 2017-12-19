@@ -59,27 +59,52 @@ func TestSplit(t *testing.T) {
 }
 
 func TestQueryVault(t *testing.T) {
-	url := "http://localhost:8200"
-	token := "roottoken"
-	path := "secret/password"
-	responseJSON := `{"data":{"value1":"itsasecret", "value2":"noitsnot"}}`
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	httpmock.RegisterResponder(
-		"GET",
-		"http://localhost:8200/v1/secret/password",
-		httpmock.NewStringResponder(http.StatusOK, responseJSON),
-	)
-
-	results := queryVault(url, token, path)
-
-	if results.Data["value1"] != "itsasecret" {
-		t.Errorf("expected value itsasecret; got %v", results.Data["value1"])
+	tt := []struct {
+		Desc         string
+		URL          string
+		Token        string
+		Path         string
+		ResponseBody string
+		ResponseCode int
+		Expected     string
+		TestError    bool
+		Error        string
+	}{
+		{
+			Desc:         "Normal case",
+			URL:          "http://localhost:8200",
+			Token:        "token",
+			Path:         "secret/password",
+			ResponseBody: `{"data":{"value1":"foo"}}`,
+			ResponseCode: http.StatusOK,
+			Expected:     "foo",
+		}, {
+			Desc:      "Unable to get response",
+			URL:       "http://localhost:8200",
+			TestError: true,
+		}, {
+			Desc:      "Bad URL",
+			URL:       "notaurl",
+			TestError: true,
+		},
 	}
-	if results.Data["value2"] != "noitsnot" {
-		t.Errorf("expected value noitsnot; got %v", results.Data["value2"])
+
+	for _, test := range tt {
+		httpmock.Activate()
+		defer httpmock.DeactivateAndReset()
+
+		httpmock.RegisterResponder(
+			"GET",
+			"http://localhost:8200/v1/secret/password",
+			httpmock.NewStringResponder(http.StatusOK, test.ResponseBody),
+		)
+
+		results, err := queryVault(test.URL, test.Token, test.Path)
+		if err != nil && test.TestError {
+			// pass
+		} else if results.Data["value1"] != test.Expected {
+			t.Errorf("expected value %v; got %v", test.Expected, results.Data["value1"])
+		}
 	}
 }
 

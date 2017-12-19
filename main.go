@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -57,7 +58,7 @@ func (r *vaultResponse) parseKeys(eks []string) ([]string, error) {
 	return values, nil
 }
 
-func queryVault(url, token, path string) vaultResponse {
+func queryVault(url, token, path string) (vaultResponse, error) {
 	var client http.Client
 
 	vr := vaultResponse{}
@@ -65,21 +66,24 @@ func queryVault(url, token, path string) vaultResponse {
 	reqURL := url + "/v1/" + path
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
-		fmt.Printf("unable to create request; %v", err)
+		return vr, fmt.Errorf("Unable to create request; %v", err)
 	}
 	req.Header.Set("X-Vault-Token", token)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("unable to get response; %v", err)
+		return vr, fmt.Errorf("Unable to get response; %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return vr, fmt.Errorf("Did not get back %v, got; %v", http.StatusOK, resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
 	if err := json.NewDecoder(resp.Body).Decode(&vr); err != nil {
-		fmt.Printf("unable to decode response body; %v", err)
+		return vr, fmt.Errorf("Unable to decode response body; %v", err)
 	}
 
-	return vr
+	return vr, nil
 }
 
 func main() {
@@ -91,7 +95,10 @@ func main() {
 	flag.Var(&eks, "eks", "ENV=key pairing where ENV gets set to the value of key in Vault")
 	flag.Parse()
 
-	response := queryVault(*url, *token, *path)
+	response, err := queryVault(*url, *token, *path)
+	if err != nil {
+		log.Fatal(err)
+	}
 	keyValues, _ := response.parseKeys(eks)
 	setEnvs(keyValues)
 }
