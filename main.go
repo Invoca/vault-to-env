@@ -41,9 +41,9 @@ func (r *vaultResponse) buildExports(eks []string) ([]string, error) {
 	if len(eks) != len(r.Data) {
 		return nil, fmt.Errorf("You must provide the same amount of eks (%d) as values in your secret (%d)", len(eks), len(r.Data))
 	}
+
 	for _, ek := range eks {
 		e, k := split(ek)
-
 		values = append(values, fmt.Sprintf("export %s=%s", e, r.Data[k]))
 	}
 
@@ -91,6 +91,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	keyValues, _ := response.buildExports(eks)
+
+	keyValues, err := response.buildExports(eks)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Printf(strings.Join(keyValues, "\n"))
 }
